@@ -91,7 +91,7 @@ def build_index(columnNumber, rowNumber):
 def calculate_available_moves(pieces, columnNumber, rowNumber, isKing, isWhite):
     moves = []
 
-    if (not isWhite or isKing):
+    if isWhite or isKing:
         # TOP-LEFT
         if (columnNumber > 0 and rowNumber > 0):
             index = build_index(columnNumber-1, rowNumber-1)
@@ -99,20 +99,20 @@ def calculate_available_moves(pieces, columnNumber, rowNumber, isKing, isWhite):
                 moves.append((columnNumber - 1, rowNumber - 1))
         
         # TOP-RIGHT
-        if (columnNumber < 6 and rowNumber > 0):
+        if (columnNumber <= 6 and rowNumber > 0):
             index = build_index(columnNumber+1, rowNumber-1)
             if not is_piece(pieces[index]):
                 moves.append((columnNumber + 1, rowNumber - 1))
 
-    if ((not isWhite) or isKing):
+    if (not isWhite) or isKing:
         # BOTTOM-LEFT
-        if (columnNumber > 0 and rowNumber < 6):
+        if (columnNumber > 0 and rowNumber <= 6):
             index = build_index(columnNumber-1, rowNumber+1)
             if not is_piece(pieces[index]):
                 moves.append((columnNumber - 1, rowNumber + 1)) 
         
         # BOTTOM-RIGHT
-        if (columnNumber < 6 and rowNumber < 6):
+        if (columnNumber <= 6 and rowNumber <= 6):
             index = build_index(columnNumber+1, rowNumber+1)
             if not is_piece(pieces[index]):
                 moves.append((columnNumber + 1, rowNumber + 1)) 
@@ -194,9 +194,16 @@ def main():
                 square = square_under_mouse(*event.pos)    
                 if (square != None and square in board.available_moves):
                     index = build_index(*square)
-                    board.available_moves = calculate_available_moves(board.pieces, *square, is_king(board.pieces[index]), is_white(board.pieces[index]) )
-                    board.clicked = [square]     
-                    valid_click = True
+                    if len(board.clicked) > 0:
+                        fromIndex = build_index(*board.clicked[0])
+                        board.pieces[index] = board.pieces[fromIndex]
+                        board.pieces[fromIndex] = 0
+                        whiteToPlay = not whiteToPlay
+                        board.clicked = []     
+                        board.available_moves = all_available_moves(board, whiteToPlay) 
+                    else:
+                        board.available_moves = calculate_available_moves(board.pieces, *square, is_king(board.pieces[index]), is_white(board.pieces[index]) )
+                        board.clicked = [square]     
                 else:
                     board.clicked = []     
                     board.available_moves = all_available_moves(board, whiteToPlay)       
