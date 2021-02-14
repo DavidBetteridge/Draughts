@@ -1,4 +1,5 @@
 import pygame
+import math
 
 # UI
 COLOUR_WHITE = (255,255,255) 
@@ -88,47 +89,60 @@ def load_counter_image(imageName):
 def build_index(columnNumber, rowNumber):
     return (rowNumber * 8) + columnNumber
 
+def in_bounds(columnNumber, rowNumber):
+    return 0 <= columnNumber < 8 and 0 <= rowNumber < 8
+
 def calculate_available_moves(pieces, columnNumber, rowNumber, isKing, isWhite):
     moves = []
+    capture_moves = []
+
+    directions = []
 
     if isWhite or isKing:
-        # TOP-LEFT
-        if (columnNumber > 0 and rowNumber > 0):
-            index = build_index(columnNumber-1, rowNumber-1)
-            if not is_piece(pieces[index]):
-                moves.append((columnNumber - 1, rowNumber - 1))
-        
-        # TOP-RIGHT
-        if (columnNumber <= 6 and rowNumber > 0):
-            index = build_index(columnNumber+1, rowNumber-1)
-            if not is_piece(pieces[index]):
-                moves.append((columnNumber + 1, rowNumber - 1))
+        directions.append((-1,-1))
+        directions.append((+1,-1))
 
     if (not isWhite) or isKing:
-        # BOTTOM-LEFT
-        if (columnNumber > 0 and rowNumber <= 6):
-            index = build_index(columnNumber-1, rowNumber+1)
+        directions.append((-1,+1))
+        directions.append((+1,+1))
+
+    for (xOffset, yOffset) in directions:
+        next = (columnNumber + xOffset, rowNumber + yOffset)
+        if in_bounds(*next):
+            index = build_index(*next)
             if not is_piece(pieces[index]):
-                moves.append((columnNumber - 1, rowNumber + 1)) 
-        
-        # BOTTOM-RIGHT
-        if (columnNumber <= 6 and rowNumber <= 6):
-            index = build_index(columnNumber+1, rowNumber+1)
-            if not is_piece(pieces[index]):
-                moves.append((columnNumber + 1, rowNumber + 1)) 
-    return moves
+                moves.append(next)
+            else:
+                if is_white(pieces[index]) != isWhite:
+                    next2 =  (columnNumber + xOffset + xOffset, rowNumber + yOffset + yOffset)
+                    if in_bounds(*next2):
+                        index2 = build_index(*next2)
+                        if not is_piece(pieces[index2]):
+                            capture_moves.append(next2)
+
+    if capture_moves:
+        return (capture_moves, True)
+    else:
+        return (moves, False)
 
 def all_available_moves(board, whiteToPlay):
     pieces = board.pieces
     moves = []
+    capture_moves = []
     for rowNumber in range(8):
         for columnNumber in range(8):
             index = build_index(columnNumber, rowNumber)
             if is_piece(pieces[index]) and whiteToPlay == is_white(pieces[index]):
-                legal_moves = calculate_available_moves(pieces, columnNumber, rowNumber, is_king(pieces[index]), is_white(pieces[index]))
+                (legal_moves, isCapture) = calculate_available_moves(pieces, columnNumber, rowNumber, is_king(pieces[index]), is_white(pieces[index]))
                 if len(legal_moves) > 0:
-                    moves.append((columnNumber, rowNumber)) 
-    return moves
+                    if isCapture:
+                        capture_moves.append((columnNumber, rowNumber)) 
+                    else:
+                        moves.append((columnNumber, rowNumber)) 
+    if capture_moves:
+        return capture_moves
+    else:
+        return moves
 
 def draw_pieces(screen, board, whiteCounter, blackCounter):
     for rowNumber in range(8):
@@ -158,6 +172,17 @@ def draw_all(screen, board, backgroundSurface, whiteCounter, blackCounter, white
 
     draw_pieces(screen, board, whiteCounter, blackCounter)   
     pygame.display.flip() 
+
+
+def find_middle_square(square1, square2):
+    (x1, y1) = square1
+    (x2, y2) = square2
+    if abs(x1 - x2) == 2:
+        x3 = x1 - 1 if x1 > x2 else x1 + 1
+        y3 = y1 - 1 if y1 > y2 else y1 + 1
+        return (x3, y3)
+    else:
+        return None
 
 def main():
     pygame.init()
@@ -194,15 +219,21 @@ def main():
                 square = square_under_mouse(*event.pos)    
                 if (square != None and square in board.available_moves):
                     index = build_index(*square)
-                    if len(board.clicked) > 0:
+                    if board.clicked:
                         fromIndex = build_index(*board.clicked[0])
                         board.pieces[index] = board.pieces[fromIndex]
                         board.pieces[fromIndex] = 0
+
+                        jumped = find_middle_square(square, board.clicked[0])
+                        if jumped != None:
+                            jumpIndex = build_index(*jumped)
+                            board.pieces[jumpIndex] = 0
+
                         whiteToPlay = not whiteToPlay
                         board.clicked = []     
                         board.available_moves = all_available_moves(board, whiteToPlay) 
                     else:
-                        board.available_moves = calculate_available_moves(board.pieces, *square, is_king(board.pieces[index]), is_white(board.pieces[index]) )
+                        (board.available_moves, _) = calculate_available_moves(board.pieces, *square, is_king(board.pieces[index]), is_white(board.pieces[index]) )
                         board.clicked = [square]     
                 else:
                     board.clicked = []     
